@@ -14,3 +14,5 @@ https://vivonomicon.com/2018/04/02/bare-metal-stm32-programming-part-1-hello-arm
 
 https://www.youtube.com/watch?v=YEGKD6JQJyM
 
+https://github.com/EZdenki/STM32F103-CMSIS-Libraries-and-Projects?tab=readme-ov-file
+
