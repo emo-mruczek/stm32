@@ -1,4 +1,12 @@
+
 #include "main.h"
+
+typedef enum LED {
+    NONE,
+    GREEN,
+    RED,
+    BLUE,
+} LED;
 
 int main(void) {
 
@@ -28,10 +36,12 @@ int main(void) {
     GPIOB->CRH |= GPIO_CRH_MODE13_0;
     GPIOB->CRH |= GPIO_CRH_MODE13_1;
     GPIOB->CRH |= GPIO_CRH_MODE14_0;
-    GPIOB->CRH |= GPIO_CRH_MODE15_1;
+    GPIOB->CRH |= GPIO_CRH_MODE14_1;
     GPIOB->CRH &= ~GPIO_CRH_CNF12_Msk;
     GPIOB->CRH &= ~GPIO_CRH_CNF13_Msk;
     GPIOB->CRH &= ~GPIO_CRH_CNF14_Msk;
+
+    LED what_led = NONE;
 
     while(1) {
         uint32_t gpioa_input = GPIOA->IDR & GPIO_IDR_IDR0; // idr is read-only
@@ -49,9 +59,38 @@ int main(void) {
 
             if(!(GPIOA->IDR  & GPIO_IDR_IDR0 )) {
                 GPIOC->ODR ^= GPIO_ODR_ODR13; // finally, toggle
-                GPIOB->ODR ^= GPIO_ODR_ODR12;
+                what_led = (what_led + 1) % 4;
+
+                switch (what_led) {
+                    case GREEN: {
+                        GPIOB->BSRR = GPIO_BSRR_BS12; // i think set/reset is more suitable here
+                        GPIOB->BSRR = GPIO_BSRR_BR13;
+                        GPIOB->BSRR = GPIO_BSRR_BR14;
+                        break;
+                    }
+                    case RED: {
+                        GPIOB->BSRR = GPIO_BSRR_BR12;
+                        GPIOB->BSRR = GPIO_BSRR_BS13;
+                        GPIOB->BSRR = GPIO_BSRR_BR14;
+                        break;
+                    }
+                    case BLUE: {
+                        GPIOB->BSRR = GPIO_BSRR_BR12;
+                        GPIOB->BSRR = GPIO_BSRR_BR13;
+                        GPIOB->BSRR = GPIO_BSRR_BS14;
+                        break;
+                    }
+                    default: {
+                        GPIOB->BSRR = GPIO_BSRR_BR12;
+                        GPIOB->BSRR = GPIO_BSRR_BR13;
+                        GPIOB->BSRR = GPIO_BSRR_BR14;
+                       // what_led = NONE;
+                        break;
+                    }
+                }
+               /* GPIOB->ODR ^= GPIO_ODR_ODR12;
                 GPIOB->ODR ^= GPIO_ODR_ODR13;
-                GPIOB->ODR ^= GPIO_ODR_ODR14;
+                GPIOB->ODR ^= GPIO_ODR_ODR14;*/
                 while (!(GPIOA->IDR  & GPIO_IDR_IDR0));
             }
         }
