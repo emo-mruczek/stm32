@@ -66,4 +66,4 @@ void EXTI0_IRQHandler(void) {
     }
 }
 
-/* i did not used software debouncer this time - ive managed to debounce the circuit using a 100nF capacitor and a 470Ohm resistor, same as here: https://vivonomicon.com/2018/04/22/bare-metal-stm32-programming-part-3-leds-and-buttons/ */
+/* i did not use software debouncer this time - ive managed to debounce the circuit using a 100nF capacitor and a 470Ohm resistor, same as here: https://vivonomicon.com/2018/04/22/bare-metal-stm32-programming-part-3-leds-and-buttons/ */
