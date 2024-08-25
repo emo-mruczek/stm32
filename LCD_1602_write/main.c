@@ -6,18 +6,18 @@
 
 #include "stm32f103x6.h" 
 
-#define D4_set ( GPIOA->BSRR |= GPIO_BSRR_BS4 )
-#define D5_set ( GPIOA->BSRR |= GPIO_BSRR_BS5 )
-#define D6_set ( GPIOA->BSRR |= GPIO_BSRR_BS6 )
-#define D7_set ( GPIOA->BSRR |= GPIO_BSRR_BS7 )
-#define D4_reset ( GPIOA->BSRR |= GPIO_BSRR_BR4 )
-#define D5_reset ( GPIOA->BSRR |= GPIO_BSRR_BR5 )
-#define D6_reset ( GPIOA->BSRR |= GPIO_BSRR_BR6 )
-#define D7_reset ( GPIOA->BSRR |= GPIO_BSRR_BR7 )
-#define RS_set ( GPIOA->BSRR |= GPIO_BSRR_BS1 )
-#define RS_reset ( GPIOA->BSRR |= GPIO_BSRR_BR1 )
-#define EN_set ( GPIOA->BSRR |= GPIO_BSRR_BS3 )
-#define EN_reset ( GPIOA->BSRR |= GPIO_BSRR_BR3 )
+#define D4_set ( GPIOA->BSRR = GPIO_BSRR_BS4 )
+#define D5_set ( GPIOA->BSRR = GPIO_BSRR_BS5 )
+#define D6_set ( GPIOA->BSRR = GPIO_BSRR_BS6 )
+#define D7_set ( GPIOA->BSRR = GPIO_BSRR_BS7 )
+#define D4_reset ( GPIOA->BSRR = GPIO_BSRR_BR4 )
+#define D5_reset ( GPIOA->BSRR = GPIO_BSRR_BR5 )
+#define D6_reset ( GPIOA->BSRR = GPIO_BSRR_BR6 )
+#define D7_reset ( GPIOA->BSRR = GPIO_BSRR_BR7 )
+#define RS_set ( GPIOA->BSRR = GPIO_BSRR_BS1 )
+#define RS_reset ( GPIOA->BSRR = GPIO_BSRR_BR1 )
+#define EN_set ( GPIOA->BSRR = GPIO_BSRR_BS3 )
+#define EN_reset ( GPIOA->BSRR = GPIO_BSRR_BR3 )
 #define send_data 1
 #define send_command 0
 
@@ -26,15 +26,15 @@ void configure_gpios(void);
 void start_timer(uint16_t ms);
 void stop_timer();
 void delay(uint16_t ms);
-void send_to_lcd(char data, char type);
-void send_nibble(char data, char type);
+void send_to_lcd(uint8_t data, uint8_t type);
+void send_nibble(uint8_t data, uint8_t type);
 void initialize_lcd(void);
 void initialize_debug();
-void put_cursor(char row, char col);
+void put_cursor(uint8_t row, uint8_t col);
 void write(char* message);
 void run_debug();
 
-volatile int debug = 0;
+volatile uint8_t debug = 0;
 volatile uint32_t ticks = 0;
 
 int main(void) {
@@ -47,8 +47,6 @@ int main(void) {
     configure_gpios();
     initialize_lcd();
 
-    run_debug();
-
     // write something
     put_cursor(0, 0);
     write("DUPA");
@@ -60,6 +58,7 @@ void write(char* message) {
     
     while (*message) send_to_lcd(*message++, send_data);
 
+    run_debug();
 }
 
 void initialize_lcd(void) {
@@ -102,17 +101,13 @@ void initialize_lcd(void) {
 
     send_to_lcd(0x0C, send_command);
     delay(10);
-
-    if ( debug ) {
-        GPIOC->ODR ^= GPIO_ODR_ODR13;
-        delay(1000);
-        GPIOC->ODR ^= GPIO_ODR_ODR13;
-    }
+    
+    run_debug();
 }
 
 // 11xx xxxx 
 
-void put_cursor(char row, char col) {
+void put_cursor(uint8_t row, uint8_t col) {
     
     // "set DDRAM address or cursor position on display 0x80 + add"
     // "80 Force cursor to the beginning (1st line)"
@@ -122,16 +117,11 @@ void put_cursor(char row, char col) {
 
     send_to_lcd(col, send_command);
     
-    if ( debug ) {
-        GPIOC->ODR ^= GPIO_ODR_ODR13;
-        delay(1000);
-        GPIOC->ODR ^= GPIO_ODR_ODR13;
-    }
-
+    run_debug();
 }
 
 // okay so in 4-bit mode i need to send data in nibbles, thus this function
-void send_to_lcd(char data, char type) {
+void send_to_lcd(uint8_t data, uint8_t type) {
 
     // 0000xxxx & 1111
     send_nibble( (data >> 4) & 0x0f, type );
@@ -139,7 +129,7 @@ void send_to_lcd(char data, char type) {
 }
 
 // char looks ok to use
-void send_nibble(char data, char type) {
+void send_nibble(uint8_t data, uint8_t type) {
 
     // command or data?
     type ? RS_set : RS_reset;
@@ -183,7 +173,7 @@ void configure_clock(void) {
     RCC->CFGR |= RCC_CFGR_SW_PLL;
     while ( !(RCC->CFGR & RCC_CFGR_SWS_PLL) ) {};
 
-    // ive spent ungodly amount of time to try to setup timer when i couldve just used a systick...
+    // ive spent ungodly amount of time to try to setup timer... systick is perfect
     SysTick_Config(64000);
 }
 
@@ -205,16 +195,18 @@ void configure_gpios(void) {
 
     RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
 
-    GPIOA->CRL &= ( ~GPIO_CRL_MODE1_Msk & ~GPIO_CRL_MODE2_Msk & ~GPIO_CRL_MODE3_Msk & ~GPIO_CRL_MODE4_Msk & ~GPIO_CRL_MODE5_Msk & ~GPIO_CRL_MODE6_Msk & ~GPIO_CRL_MODE7_Msk );
+    GPIOA->CRL &= ~( GPIO_CRL_MODE1_Msk & GPIO_CRL_MODE2_Msk & GPIO_CRL_MODE3_Msk & GPIO_CRL_MODE4_Msk & GPIO_CRL_MODE5_Msk & GPIO_CRL_MODE6_Msk & GPIO_CRL_MODE7_Msk );
     GPIOA->CRL |= ( GPIO_CRL_MODE1_1 | GPIO_CRL_MODE2_1 | GPIO_CRL_MODE3_1 | GPIO_CRL_MODE4_1 | GPIO_CRL_MODE5_1 | GPIO_CRL_MODE6_1 |  GPIO_CRL_MODE7_1 );
-    GPIOA->CRL &= ( ~GPIO_CRL_CNF1_Msk & ~GPIO_CRL_CNF2_Msk & ~GPIO_CRL_CNF3_Msk & ~GPIO_CRL_CNF4_Msk & ~GPIO_CRL_CNF5_Msk & ~GPIO_CRL_CNF6_Msk & ~GPIO_CRL_CNF7_Msk );  
+    GPIOA->CRL &= ~( GPIO_CRL_CNF1_Msk & GPIO_CRL_CNF2_Msk & GPIO_CRL_CNF3_Msk & GPIO_CRL_CNF4_Msk & GPIO_CRL_CNF5_Msk & GPIO_CRL_CNF6_Msk & GPIO_CRL_CNF7_Msk ); 
+
+    run_debug();
 }
 
 void run_debug(void) {
     if ( debug ) {
-        for ( uint8_t i = 0; i < 3; ++i ) {
+        for ( uint8_t i = 0; i < 4; ++i ) {
             GPIOC->ODR ^= GPIO_ODR_ODR13;
-            delay(250);
+            delay(100);
         }
     }
 }
