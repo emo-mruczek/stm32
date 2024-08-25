@@ -21,6 +21,9 @@
 #define send_data 1
 #define send_command 0
 
+// ngl im debugging this using leds...
+#define delay_time 500
+
 void configure_clock(void);
 void configure_gpios(void);
 void start_timer(uint16_t ms);
@@ -49,9 +52,10 @@ int main(void) {
 
     // write something
     put_cursor(0, 0);
-    write("DUPA");
+    send_to_lcd(0x08, send_command);
+  //  write("DUPA");
 
-    while(1) {};
+   // while(1) {};
 }
 
 void write(char* message) {
@@ -65,44 +69,50 @@ void initialize_lcd(void) {
 
     // taken from datasheet 
     // delays just-in-case, with my clock speed they technically shouldnt be necessary
-    
-    delay(45);
+   
+    send_to_lcd(0x00, send_command);
+    delay(delay_time);
     send_to_lcd(0x30, send_command);
-    delay(45);
+    delay(delay_time);
     send_to_lcd(0x30, send_command);
-    delay(2);
+    delay(delay_time);
     send_to_lcd(0x30, send_command);
-    delay(10);
+    delay(delay_time);
 
     // 4-bit mode
     send_to_lcd(0x20, send_command);
-    delay(10);
+    delay(delay_time);
 
     // writing it like that makes sense, because im sending it as nibbles
 
     // N = 1: 2 lines, N = 0: 1 line
     // F = 1: 5 × 10 dots, F = 0: 5 × 8 dots
     send_to_lcd(0x28, send_command);
-    delay(2);
+    delay(delay_time);
     send_to_lcd(0x08, send_command);
-    delay(2);
+    delay(delay_time);
     send_to_lcd(0x01, send_command);
-    delay(2);
+    delay(delay_time);
 
     // I/D = 1: Increment
     // I/D = 0: Decrement
     // S = 1: Accompanies display shift
     send_to_lcd(0x06, send_command);
-    delay(1);
+    delay(delay_time);
     
     // initialization finished
 
     // turn on the display
 
     send_to_lcd(0x0C, send_command);
-    delay(10);
+    delay(delay_time);
+
+
     
     run_debug();
+
+    
+    delay(9000);
 }
 
 // 11xx xxxx 
@@ -125,6 +135,7 @@ void send_to_lcd(uint8_t data, uint8_t type) {
 
     // 0000xxxx & 1111
     send_nibble( (data >> 4) & 0x0f, type );
+    delay(delay_time);
     send_nibble( data & 0x0f, type);
 }
 
@@ -135,17 +146,17 @@ void send_nibble(uint8_t data, uint8_t type) {
     type ? RS_set : RS_reset;
 
     // set/reset pins
-    ( data >> 0 & 1 ) ? D4_set : D4_reset;
-    ( data >> 1 & 1 ) ? D5_set : D5_reset;
-    ( data >> 2 & 1 ) ? D6_set : D6_reset;
-    ( data >> 3 & 1 ) ? D7_set : D7_reset;
+    ( ( data >> 3 ) & 0x01 ) ? D7_set : D7_reset;
+    ( ( data >> 2 ) & 0x01 ) ? D6_set : D6_reset;
+    ( ( data >> 1 ) & 0x01 ) ? D5_set : D5_reset;
+    ( ( data >> 0 ) & 0x01 ) ? D4_set : D4_reset;
 
     // enable tick
     // delay should be ok, my clock speed is not very high
     EN_set;
-    delay(20);
+    delay(delay_time);
     EN_reset;
-    delay(20);
+    delay(delay_time);
 }
 
 void delay(uint16_t ms) {
@@ -192,12 +203,13 @@ void initialize_debug(void) {
 
 // what a monstrosity 
 void configure_gpios(void) {
-
+   
     RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
 
-    GPIOA->CRL &= ~( GPIO_CRL_MODE1_Msk & GPIO_CRL_MODE2_Msk & GPIO_CRL_MODE3_Msk & GPIO_CRL_MODE4_Msk & GPIO_CRL_MODE5_Msk & GPIO_CRL_MODE6_Msk & GPIO_CRL_MODE7_Msk );
+
+     GPIOA->CRL &= ( ~GPIO_CRL_MODE1_Msk & ~GPIO_CRL_MODE2_Msk & ~GPIO_CRL_MODE3_Msk & ~GPIO_CRL_MODE4_Msk & ~GPIO_CRL_MODE5_Msk & ~GPIO_CRL_MODE6_Msk & ~GPIO_CRL_MODE7_Msk );
     GPIOA->CRL |= ( GPIO_CRL_MODE1_1 | GPIO_CRL_MODE2_1 | GPIO_CRL_MODE3_1 | GPIO_CRL_MODE4_1 | GPIO_CRL_MODE5_1 | GPIO_CRL_MODE6_1 |  GPIO_CRL_MODE7_1 );
-    GPIOA->CRL &= ~( GPIO_CRL_CNF1_Msk & GPIO_CRL_CNF2_Msk & GPIO_CRL_CNF3_Msk & GPIO_CRL_CNF4_Msk & GPIO_CRL_CNF5_Msk & GPIO_CRL_CNF6_Msk & GPIO_CRL_CNF7_Msk ); 
+    GPIOA->CRL &= ( ~GPIO_CRL_CNF1_Msk & ~GPIO_CRL_CNF2_Msk & ~GPIO_CRL_CNF3_Msk & ~GPIO_CRL_CNF4_Msk & ~GPIO_CRL_CNF5_Msk & ~GPIO_CRL_CNF6_Msk & ~GPIO_CRL_CNF7_Msk );
 
     run_debug();
 }
