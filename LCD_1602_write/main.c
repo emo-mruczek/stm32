@@ -32,29 +32,22 @@ void initialize_lcd(void);
 void initialize_debug();
 void put_cursor(char row, char col);
 void write(char* message);
+void run_debug();
 
 volatile int debug = 0;
-volatile int delay_end = 0;
+volatile uint32_t ticks = 0;
 
 int main(void) {
 
     configure_clock();
     initialize_debug();
 
-     if ( debug ) {
-        GPIOC->ODR ^= GPIO_ODR_ODR13;
-        delay(1000);
-        GPIOC->ODR ^= GPIO_ODR_ODR13;
-    }
-
-    if ( debug ) {
-        GPIOC->ODR ^= GPIO_ODR_ODR13;
-        delay(1000);
-        GPIOC->ODR ^= GPIO_ODR_ODR13;
-    }
+    run_debug();
 
     configure_gpios();
     initialize_lcd();
+
+    run_debug();
 
     // write something
     put_cursor(0, 0);
@@ -91,11 +84,11 @@ void initialize_lcd(void) {
     // N = 1: 2 lines, N = 0: 1 line
     // F = 1: 5 × 10 dots, F = 0: 5 × 8 dots
     send_to_lcd(0x28, send_command);
-    delay(1);
+    delay(2);
     send_to_lcd(0x08, send_command);
-    delay(1);
+    delay(2);
     send_to_lcd(0x01, send_command);
-    delay(1);
+    delay(2);
 
     // I/D = 1: Increment
     // I/D = 0: Decrement
@@ -166,57 +159,17 @@ void send_nibble(char data, char type) {
 }
 
 void delay(uint16_t ms) {
-    
-    start_timer(ms);
+
+    uint32_t ticks_after_delay = ticks + ms;
 
     // so im waiting for interrupt, basically
-    while (!delay_end) {};
-    stop_timer();
- }
-
-// nothing new
-void start_timer(uint16_t ms) {
-    
-    // disabling counter 
-    TIM3->CR1 &= ~TIM_CR1_CEN;
-
-    // reseting the timer 
-    RCC->APB1RSTR |= RCC_APB1RSTR_TIM3RST;
-    RCC->APB1RSTR &= ~RCC_APB1RSTR_TIM3RST;
-
-    // like, there are 100ms in a second
-    // prescaler 
-    TIM3->PSC = 64000000 / 1000 - 1;
-
-    TIM3->ARR = ms;
-
-    // event generation register, update generation 
-    TIM3->EGR |= TIM_EGR_UG;
-
-    // enable interrupt 
-    TIM3->DIER |= TIM_DIER_UIE; // update interrupt enable
-
-    // finally, enable timer 
-    TIM3->CR1 |= TIM_CR1_CEN; // counter enable 
+    while ( ticks < ticks_after_delay ) __asm__("nop");
 }
 
-void stop_timer() {
-    TIM3->CR1 &= ~TIM_CR1_CEN;
-    TIM3->SR &= ~TIM_SR_UIF;
-    delay_end = 0;
+void SysTick_Handler(void) {
+    ticks += 1;
 }
 
-// what a monstrosity 
-void configure_gpios(void) {
-
-    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
-
-    GPIOA->CRL &= ( ~GPIO_CRL_MODE1_Msk & ~GPIO_CRL_MODE2_Msk & ~GPIO_CRL_MODE3_Msk & ~GPIO_CRL_MODE4_Msk & ~GPIO_CRL_MODE5_Msk & ~GPIO_CRL_MODE6_Msk & ~GPIO_CRL_MODE7_Msk );
-    GPIOA->CRL |= ( GPIO_CRL_MODE1_1 | GPIO_CRL_MODE2_1 | GPIO_CRL_MODE3_1 | GPIO_CRL_MODE4_1 | GPIO_CRL_MODE5_1 | GPIO_CRL_MODE6_1 |  GPIO_CRL_MODE7_1 );
-    GPIOA->CRL &= ( ~GPIO_CRL_CNF1_Msk & ~GPIO_CRL_CNF2_Msk & ~GPIO_CRL_CNF3_Msk & ~GPIO_CRL_CNF4_Msk & ~GPIO_CRL_CNF5_Msk & ~GPIO_CRL_CNF6_Msk & ~GPIO_CRL_CNF7_Msk );  
-}
-
-// my typical clock configuration, nothing special, comments in other programs
 void configure_clock(void) {
 
     FLASH->ACR |= FLASH_ACR_PRFTBE;
@@ -230,18 +183,8 @@ void configure_clock(void) {
     RCC->CFGR |= RCC_CFGR_SW_PLL;
     while ( !(RCC->CFGR & RCC_CFGR_SWS_PLL) ) {};
 
-    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-
-
-    NVIC_SetPriority(TIM3_IRQn, 3);
-    NVIC_EnableIRQ(TIM3_IRQn);
-}
-
-void TIM2_IRQHandler(void) {
-    // using status register and update interrupt flag
-    if ( TIM3->SR & TIM_SR_UIF ) {
-        delay_end = 1;
-    }
+    // ive spent ungodly amount of time to try to setup timer when i couldve just used a systick...
+    SysTick_Config(64000);
 }
 
 void initialize_debug(void) {
@@ -255,4 +198,23 @@ void initialize_debug(void) {
     GPIOC->CRH &= ~GPIO_CRH_CNF13_Msk;
 
     debug = 1;
+}
+
+// what a monstrosity 
+void configure_gpios(void) {
+
+    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
+
+    GPIOA->CRL &= ( ~GPIO_CRL_MODE1_Msk & ~GPIO_CRL_MODE2_Msk & ~GPIO_CRL_MODE3_Msk & ~GPIO_CRL_MODE4_Msk & ~GPIO_CRL_MODE5_Msk & ~GPIO_CRL_MODE6_Msk & ~GPIO_CRL_MODE7_Msk );
+    GPIOA->CRL |= ( GPIO_CRL_MODE1_1 | GPIO_CRL_MODE2_1 | GPIO_CRL_MODE3_1 | GPIO_CRL_MODE4_1 | GPIO_CRL_MODE5_1 | GPIO_CRL_MODE6_1 |  GPIO_CRL_MODE7_1 );
+    GPIOA->CRL &= ( ~GPIO_CRL_CNF1_Msk & ~GPIO_CRL_CNF2_Msk & ~GPIO_CRL_CNF3_Msk & ~GPIO_CRL_CNF4_Msk & ~GPIO_CRL_CNF5_Msk & ~GPIO_CRL_CNF6_Msk & ~GPIO_CRL_CNF7_Msk );  
+}
+
+void run_debug(void) {
+    if ( debug ) {
+        for ( uint8_t i = 0; i < 3; ++i ) {
+            GPIOC->ODR ^= GPIO_ODR_ODR13;
+            delay(250);
+        }
+    }
 }
