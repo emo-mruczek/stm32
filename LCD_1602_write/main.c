@@ -1,6 +1,6 @@
 /* with a help of 
  * https://controllerstech.com/interface-lcd-16x2-with-stm32-without-i2c/
- * https://deepbluembedded.com/stm32-lcd-16x2-tutorial-library-alphanumeric-lcd-16x2-interfacing/  * and some random LCD1602 datasheet, as i bought my lcd on aliexpress */
+ * https://deepbluembedded.com/stm32-lcd-16x2-tutorial-library-alphanumeric-lcd-16x2-interfacing/  * and some random LCD1602 datasheet for hitachi controller, idk i bought lcd on aliexpress */
 
 /* this is a gpio hell... i need to clean it up! */
 
@@ -29,15 +29,50 @@ void delay(uint16_t ms);
 void send_to_lcd(char data, char type);
 void send_nibble(char data, char type);
 void initialize_lcd(void);
+void initialize_debug();
+void put_cursor(char row, char col);
+void write(char* message);
+
+volatile int debug = 0;
+volatile int delay_end = 0;
 
 int main(void) {
 
     configure_clock();
+    initialize_debug();
+
+     if ( debug ) {
+        GPIOC->ODR ^= GPIO_ODR_ODR13;
+        delay(1000);
+        GPIOC->ODR ^= GPIO_ODR_ODR13;
+    }
+
+    if ( debug ) {
+        GPIOC->ODR ^= GPIO_ODR_ODR13;
+        delay(1000);
+        GPIOC->ODR ^= GPIO_ODR_ODR13;
+    }
+
     configure_gpios();
+    initialize_lcd();
+
+    // write something
+    put_cursor(0, 0);
+    write("DUPA");
+
+    while(1) {};
+}
+
+void write(char* message) {
+    
+    while (*message) send_to_lcd(*message++, send_data);
+
 }
 
 void initialize_lcd(void) {
+
     // taken from datasheet 
+    // delays just-in-case, with my clock speed they technically shouldnt be necessary
     
     delay(45);
     send_to_lcd(0x30, send_command);
@@ -51,11 +86,38 @@ void initialize_lcd(void) {
     send_to_lcd(0x20, send_command);
     delay(10);
 
-    // 
+    // writing it like that makes sense, because im sending it as nibbles
 
+    // N = 1: 2 lines, N = 0: 1 line
+    // F = 1: 5 × 10 dots, F = 0: 5 × 8 dots
+    send_to_lcd(0x28, send_command);
+    delay(1);
+    send_to_lcd(0x08, send_command);
+    delay(1);
+    send_to_lcd(0x01, send_command);
+    delay(1);
 
+    // I/D = 1: Increment
+    // I/D = 0: Decrement
+    // S = 1: Accompanies display shift
+    send_to_lcd(0x06, send_command);
+    delay(1);
+    
+    // initialization finished
 
+    // turn on the display
+
+    send_to_lcd(0x0C, send_command);
+    delay(10);
+
+    if ( debug ) {
+        GPIOC->ODR ^= GPIO_ODR_ODR13;
+        delay(1000);
+        GPIOC->ODR ^= GPIO_ODR_ODR13;
+    }
 }
+
+// 11xx xxxx 
 
 void put_cursor(char row, char col) {
     
@@ -63,9 +125,16 @@ void put_cursor(char row, char col) {
     // "80 Force cursor to the beginning (1st line)"
     // "C0 Force cursor to the beginning (2nd line)"
     
-    col |= ( row ?  0x80 : 0xC0 );
+    col |= ( row ?  0xC0 : 0x80 );
 
     send_to_lcd(col, send_command);
+    
+    if ( debug ) {
+        GPIOC->ODR ^= GPIO_ODR_ODR13;
+        delay(1000);
+        GPIOC->ODR ^= GPIO_ODR_ODR13;
+    }
+
 }
 
 // okay so in 4-bit mode i need to send data in nibbles, thus this function
@@ -101,10 +170,9 @@ void delay(uint16_t ms) {
     start_timer(ms);
 
     // so im waiting for interrupt, basically
-    while (!(TIM3->SR & TIM_SR_UIF)) {};
+    while (!delay_end) {};
     stop_timer();
-    TIM3->SR &= ~TIM_SR_UIF; // need to reset it manualy
-}
+ }
 
 // nothing new
 void start_timer(uint16_t ms) {
@@ -135,6 +203,7 @@ void start_timer(uint16_t ms) {
 void stop_timer() {
     TIM3->CR1 &= ~TIM_CR1_CEN;
     TIM3->SR &= ~TIM_SR_UIF;
+    delay_end = 0;
 }
 
 // what a monstrosity 
@@ -162,4 +231,28 @@ void configure_clock(void) {
     while ( !(RCC->CFGR & RCC_CFGR_SWS_PLL) ) {};
 
     RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+
+
+    NVIC_SetPriority(TIM3_IRQn, 3);
+    NVIC_EnableIRQ(TIM3_IRQn);
+}
+
+void TIM2_IRQHandler(void) {
+    // using status register and update interrupt flag
+    if ( TIM3->SR & TIM_SR_UIF ) {
+        delay_end = 1;
+    }
+}
+
+void initialize_debug(void) {
+
+    // yes, its just pc13...
+
+    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+
+    GPIOC->CRH &= ~GPIO_CRH_MODE13_Msk;
+    GPIOC->CRH |= GPIO_CRH_MODE13_0;
+    GPIOC->CRH &= ~GPIO_CRH_CNF13_Msk;
+
+    debug = 1;
 }
