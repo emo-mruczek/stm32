@@ -1,8 +1,7 @@
 /* with a help of 
  * https://controllerstech.com/interface-lcd-16x2-with-stm32-without-i2c/
- * https://deepbluembedded.com/stm32-lcd-16x2-tutorial-library-alphanumeric-lcd-16x2-interfacing/  * and some random LCD1602 datasheet for hitachi controller, idk i bought lcd on aliexpress */
-
-/* this is a gpio hell... i need to clean it up! */
+ * https://deepbluembedded.com/stm32-lcd-16x2-tutorial-library-alphanumeric-lcd-16x2-interfacing/ 
+ * and some random LCD1602 datasheet for hitachi controller, idk i bought lcd on aliexpress */
 
 #include "stm32f103x6.h" 
 
@@ -41,7 +40,6 @@ volatile uint8_t debug = 0;
 volatile uint32_t ticks = 0;
 
 int main(void) {
-
     configure_clock();
     initialize_debug();
 
@@ -53,13 +51,9 @@ int main(void) {
     // write something
     put_cursor(0, 0);
     send_to_lcd(0x08, send_command);
-  //  write("DUPA");
-
-   // while(1) {};
 }
 
 void write(char* message) {
-    
     while (*message) send_to_lcd(*message++, send_data);
 
     run_debug();
@@ -69,7 +63,6 @@ void initialize_lcd(void) {
 
     // taken from datasheet 
     // delays just-in-case, with my clock speed they technically shouldnt be necessary
-   
     send_to_lcd(0x00, send_command);
     delay(delay_time);
     send_to_lcd(0x30, send_command);
@@ -103,26 +96,16 @@ void initialize_lcd(void) {
     // initialization finished
 
     // turn on the display
-
     send_to_lcd(0x0C, send_command);
     delay(delay_time);
-
-
     
     run_debug();
-
-    
-    delay(9000);
 }
 
-// 11xx xxxx 
-
 void put_cursor(uint8_t row, uint8_t col) {
-    
     // "set DDRAM address or cursor position on display 0x80 + add"
     // "80 Force cursor to the beginning (1st line)"
     // "C0 Force cursor to the beginning (2nd line)"
-    
     col |= ( row ?  0xC0 : 0x80 );
 
     send_to_lcd(col, send_command);
@@ -132,7 +115,6 @@ void put_cursor(uint8_t row, uint8_t col) {
 
 // okay so in 4-bit mode i need to send data in nibbles, thus this function
 void send_to_lcd(uint8_t data, uint8_t type) {
-
     // 0000xxxx & 1111
     send_nibble( (data >> 4) & 0x0f, type );
     delay(delay_time);
@@ -141,7 +123,6 @@ void send_to_lcd(uint8_t data, uint8_t type) {
 
 // char looks ok to use
 void send_nibble(uint8_t data, uint8_t type) {
-
     // command or data?
     type ? RS_set : RS_reset;
 
@@ -160,10 +141,8 @@ void send_nibble(uint8_t data, uint8_t type) {
 }
 
 void delay(uint16_t ms) {
-
     uint32_t ticks_after_delay = ticks + ms;
 
-    // so im waiting for interrupt, basically
     while ( ticks < ticks_after_delay ) __asm__("nop");
 }
 
@@ -172,7 +151,6 @@ void SysTick_Handler(void) {
 }
 
 void configure_clock(void) {
-
     FLASH->ACR |= FLASH_ACR_PRFTBE;
     FLASH->ACR |= FLASH_ACR_LATENCY_2;     
 
@@ -189,9 +167,7 @@ void configure_clock(void) {
 }
 
 void initialize_debug(void) {
-
     // yes, its just pc13...
-
     RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
 
     GPIOC->CRH &= ~GPIO_CRH_MODE13_Msk;
@@ -201,13 +177,10 @@ void initialize_debug(void) {
     debug = 1;
 }
 
-// what a monstrosity 
 void configure_gpios(void) {
-   
     RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
 
-
-     GPIOA->CRL &= ( ~GPIO_CRL_MODE1_Msk & ~GPIO_CRL_MODE2_Msk & ~GPIO_CRL_MODE3_Msk & ~GPIO_CRL_MODE4_Msk & ~GPIO_CRL_MODE5_Msk & ~GPIO_CRL_MODE6_Msk & ~GPIO_CRL_MODE7_Msk );
+    GPIOA->CRL &= ( ~GPIO_CRL_MODE1_Msk & ~GPIO_CRL_MODE2_Msk & ~GPIO_CRL_MODE3_Msk & ~GPIO_CRL_MODE4_Msk & ~GPIO_CRL_MODE5_Msk & ~GPIO_CRL_MODE6_Msk & ~GPIO_CRL_MODE7_Msk );
     GPIOA->CRL |= ( GPIO_CRL_MODE1_1 | GPIO_CRL_MODE2_1 | GPIO_CRL_MODE3_1 | GPIO_CRL_MODE4_1 | GPIO_CRL_MODE5_1 | GPIO_CRL_MODE6_1 |  GPIO_CRL_MODE7_1 );
     GPIOA->CRL &= ( ~GPIO_CRL_CNF1_Msk & ~GPIO_CRL_CNF2_Msk & ~GPIO_CRL_CNF3_Msk & ~GPIO_CRL_CNF4_Msk & ~GPIO_CRL_CNF5_Msk & ~GPIO_CRL_CNF6_Msk & ~GPIO_CRL_CNF7_Msk );
 
