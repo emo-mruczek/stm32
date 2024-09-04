@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 void read_from_file(const char* filename, char** word);
-int16_t finite_automaton_matcher(const char* word, uint16_t** tra, uint16_t pattern_len, const char* sigma);
+int8_t finite_automaton_matcher(const char* word, uint16_t** tra, uint16_t pattern_len, const char* sigma);
 uint16_t** compute_transition_function(const char* pattern, const char* sigma); 
 uint8_t is_sufix(const char* pattern, uint16_t k, uint16_t q, uint16_t a, const char* sigma);
 char* generate_sigma(const char* word, const char* pattern);
@@ -31,8 +31,7 @@ int main(int argc, char** argv) {
 
     uint16_t** tr = compute_transition_function(pattern, sigma);
 
-    int16_t result = finite_automaton_matcher(word, tr, strlen(pattern), sigma);
-    result != -1 ? printf("Match with a move of %" PRId16 "\n", result) : printf("No matches\n");
+    if ( !(finite_automaton_matcher(word, tr, strlen(pattern), sigma))) printf("No matches\n");
 
     for (uint16_t i = 0; i <= strlen(pattern); ++i) {
         free(tr[i]);
@@ -47,6 +46,11 @@ int main(int argc, char** argv) {
 
 uint8_t is_sufix(const char* pattern, uint16_t k, uint16_t q, uint16_t a, const char* sigma) {
     char* new_pattern = (char*)malloc((q + 2) * sizeof(char));
+    if ( !new_pattern ) {
+        printf("Couldn't allocate memory! :(");
+        exit(1);
+    }
+
     strncpy(new_pattern, pattern, q);
     new_pattern[q] = sigma[a];
     new_pattern[q+1] = '\0';
@@ -85,8 +89,8 @@ uint16_t** compute_transition_function(const char* pattern, const char* sigma) {
         tr[i] = (uint16_t*)malloc(n * sizeof(uint16_t));
     }
     if ( !tr ) {
-        printf("Memory allocation failed!");
-        exit(1);
+        printf("Couldn't allocate memory! :(");
+        exit(1);  
     }
 
     // there are m + 1 states
@@ -112,7 +116,7 @@ uint16_t** compute_transition_function(const char* pattern, const char* sigma) {
  *        wypisz "Wzorzec wystepuje z przesunieciem " i - m
  */
 
-int16_t finite_automaton_matcher(const char* word, uint16_t** tr, uint16_t pattern_len, const char* sigma) {
+int8_t finite_automaton_matcher(const char* word, uint16_t** tr, uint16_t pattern_len, const char* sigma) {
     uint16_t n = strlen(word);
     uint16_t q = 0;
     uint16_t sigma_index;
@@ -124,8 +128,10 @@ int16_t finite_automaton_matcher(const char* word, uint16_t** tr, uint16_t patte
                 sigma_index = j;
                 break;
             }
-        }        q = tr[q][sigma_index]; 
-        if ( q == pattern_len ) return (i - pattern_len + 1);
+        }   
+
+        q = tr[q][sigma_index]; 
+        if ( q == pattern_len ) printf("Match with a move of %" PRId16 "\n", i - pattern_len + 1);
     }
 
     return -1;
