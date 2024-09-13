@@ -20,14 +20,8 @@ int main() {
 
 
     // to set pin to open-drain, i need TO 1 <<  4 * PIN + 2
-    GPIOB->CRL |= ( 1 << ( 4 * 5 + 2) );
-
     // to set a pin high, i just need to 1 << PIN
     // to reset, 1 << ( 16 + PIN )
-
-    // GPIOB->BSRR |= ( 1 << 6 );
-    //GPIOB->BSRR |= ( 1 << 5 );
-    // GPIOB->BSRR |= ( 1 << ( 16 + 7 ) );
 
     set_pin(5, OPEN_DRAIN);
     set_pin(6, HIGH);
