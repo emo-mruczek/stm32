@@ -8,26 +8,43 @@
 #define HIGH 1
 #define LOW 2
 #define OPEN_DRAIN 3
+#define NO_OF_DIODES 6
 
 void configure_clock(void);
 void configure_gpios(void);
 void set_pin(uint8_t pin, uint8_t mode);
+void delay(uint16_t s);
+
+volatile uint32_t ticks = 0;
+
+typedef struct diode {
+    uint8_t pin_1;
+    uint8_t pin_2;
+    uint8_t pin_3;
+} diode;
+
+volatile diode diodes[NO_OF_DIODES] = {
+    { OPEN_DRAIN, HIGH, LOW },
+    { OPEN_DRAIN, LOW, HIGH },
+    { HIGH, OPEN_DRAIN, LOW },
+    { LOW, OPEN_DRAIN, HIGH },
+    { LOW, HIGH, OPEN_DRAIN },
+    { HIGH, LOW, OPEN_DRAIN }
+};
 
 int main() {
 
     configure_clock();
     configure_gpios();
 
-
-    // to set pin to open-drain, i need TO 1 <<  4 * PIN + 2
-    // to set a pin high, i just need to 1 << PIN
-    // to reset, 1 << ( 16 + PIN )
-
-    set_pin(5, OPEN_DRAIN);
-    set_pin(6, HIGH);
-    set_pin(7, LOW);
-
-    while(1) {};
+    uint8_t i = 0;
+    while (1) {
+        set_pin(5, diodes[i].pin_1);
+        set_pin(6, diodes[i].pin_2);
+        set_pin(7, diodes[i].pin_3);
+        delay(100);
+        i = (i + 1) % NO_OF_DIODES;
+    }
 }
 
 /* change configuration of a pin
@@ -84,4 +101,15 @@ void configure_clock(void) {
 
     RCC->CFGR |= RCC_CFGR_SW_PLL;
     while ( !(RCC->CFGR & RCC_CFGR_SWS_PLL) ) {};
+
+    SysTick_Config(64000);
+}
+
+void delay(uint16_t s) {
+    uint32_t ticks_after_delay = ticks + s;
+    while ( ticks < ticks_after_delay ) __asm__("nop");
+}
+
+void SysTick_Handler(void) {
+    ticks += 1;
 }
